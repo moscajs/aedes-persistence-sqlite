@@ -27,7 +27,7 @@
     "sqlite",
     "sqlite3"
   ],
-  "author": "Matteo Collina <hello@matteocollina.com>",
+  "author": "Hans Klunder",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/seriousme/aedes-persistence-sqlite/issues"

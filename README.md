@@ -1,33 +1,32 @@
-# aedes-persistence-level
+# aedes-persistence-sqlite
 
-![.github/workflows/ci.yml](https://github.com/moscajs/aedes-persistence-level/workflows/.github/workflows/ci.yml/badge.svg)
+![.github/workflows/ci.yml](https://github.com/moscajs/aedes-persistence-sqlite/workflows/.github/workflows/ci.yml/badge.svg)
 
-[Aedes][aedes] [persistence][persistence], backed by [levelup][levelup].
+[Aedes][aedes] [persistence][persistence], backed by the built-in Node.js SQLite module.
 
 See [aedes-persistence][persistence] for the full API, and [Aedes][aedes] for usage.
 
 ## Install
 
 ```
-npm i aedes aedes-persistence-level level --save
+npm i aedes aedes-persistence-sqlite --save
 ```
 
 ## API
 
 <a name="constructor"></a>
-### aedesPersistencelevel(db)
+### aedesPersistenceSqlite(database)
 
-Creates a new instance of aedes-persistence-level.
-The first parameter is an instance of [levelup][levelup].
+Creates a new instance of aedes-persistence-sqlite.
+The parameter is a SQLite database filename, or an existing `DatabaseSync` instance from `node:sqlite`.
 
 Example:
 
 ```js
-const { Level } = require('level') // Level >= 9.0.0 is required 
-const aedesPersistencelevel = require('aedes-persistence-level')
+const aedesPersistenceSqlite = require('aedes-persistence-sqlite')
 
 // instantiate a persistence instance
-aedesPersistencelevel(new Level('./mydb'))
+aedesPersistenceSqlite('./mydb.sqlite')
 ```
 
 ## License
@@ -36,4 +35,3 @@ MIT
 
 [aedes]: https://github.com/mcollina/aedes
 [persistence]: https://github.com/mcollina/aedes-persistence
-[levelup]: http://npm.im/levelup

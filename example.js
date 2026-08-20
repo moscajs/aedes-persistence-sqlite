@@ -1,10 +1,9 @@
-const { Level } = require('level')
-const aedesPersistencelevel = require('.')
+const aedesPersistenceSqlite = require('.')
 const net = require('net')
 const port = 1883
 
 const aedes = require('aedes')({
-  persistence: aedesPersistencelevel(new Level('./mydb'))
+  persistence: aedesPersistenceSqlite('./mydb.sqlite')
 })
 const server = net.createServer(aedes.handle)
 

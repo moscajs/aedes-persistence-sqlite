@@ -2,32 +2,26 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const persistence = require('../persistence.js')
 const abs = require('aedes-persistence/abstract')
-const { Level } = require('level') // Level >= 8.0.0
-
 const { randomUUID } = require('node:crypto')
 const { tmpdir } = require('node:os')
 const { join } = require('node:path')
 const { mkdirSync } = require('node:fs')
 
 function tempDir () {
-  const dir = join(tmpdir(), 'aedes-persistence-level-test', randomUUID())
+  const dir = join(tmpdir(), 'aedes-persistence-sqlite-test', randomUUID())
   mkdirSync(dir, { recursive: true })
-  return dir
-}
-
-function leveldb () {
-  return new Level(tempDir())
+  return join(dir, 'persistence.sqlite')
 }
 
 abs({
   test,
   persistence () {
-    return persistence(leveldb())
+    return persistence(tempDir())
   }
 })
 
 test('restore', t => {
-  const db = leveldb()
+  const db = tempDir()
   const instance = persistence(db)
   const client = {
     id: 'abcde'
@@ -70,7 +64,7 @@ test('restore', t => {
 })
 
 test('outgoing update after enqueuing a possible offline message', t => {
-  const db = leveldb()
+  const db = tempDir()
   const instance = persistence(db)
   const client = {
     clientId: 'abcde'
@@ -109,7 +103,7 @@ test('outgoing update after enqueuing a possible offline message', t => {
 })
 
 test('Dont replace subscriptions with different QoS if client id is different', t => {
-  const db = leveldb()
+  const db = tempDir()
   const instance = persistence(db)
   const client = {
     id: 'test'
@@ -157,7 +151,7 @@ test('Dont replace subscriptions with different QoS if client id is different', 
 })
 
 test('Replace subscriptions with different QoS if client id is same', t => {
-  const db = leveldb()
+  const db = tempDir()
   const instance = persistence(db)
   const client = {
     id: 'test'

@@ -1,6 +1,6 @@
 # aedes-persistence-sqlite
 
-![.github/workflows/ci.yml](https://github.com/moscajs/aedes-persistence-sqlite/workflows/.github/workflows/ci.yml/badge.svg)
+![.github/workflows/ci.yml](https://github.com/seriousme/aedes-persistence-sqlite/workflows/.github/workflows/ci.yml/badge.svg)
 
 [Aedes][aedes] [persistence][persistence], backed by the built-in Node.js SQLite
 module.

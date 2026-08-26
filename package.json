@@ -1,6 +1,6 @@
 {
   "name": "aedes-persistence-sqlite",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "SQLite persistence for Aedes using the Node.js built-in SQLite module",
   "main": "persistence.js",
   "engines": {

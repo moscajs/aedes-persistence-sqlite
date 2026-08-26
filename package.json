@@ -4,7 +4,7 @@
   "description": "SQLite persistence for Aedes using the Node.js built-in SQLite module",
   "main": "persistence.js",
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=22.13.0"
   },
   "scripts": {
     "lint": "eslint",
@@ -18,7 +18,7 @@
   "precommit": "test",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/seriousme/aedes-persistence-sqlite.git"
+    "url": "git+https://github.com/moscajs/aedes-persistence-sqlite.git"
   },
   "keywords": [
     "aedes",
@@ -30,9 +30,9 @@
   "author": "Hans Klunder",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/seriousme/aedes-persistence-sqlite/issues"
+    "url": "https://github.com/moscajs/aedes-persistence-sqlite/issues"
   },
-  "homepage": "https://github.com/seriousme/aedes-persistence-sqlite#readme",
+  "homepage": "https://github.com/moscajs/aedes-persistence-sqlite#readme",
   "devDependencies": {
     "@fastify/pre-commit": "^2.2.0",
     "aedes": "^0.51.3",

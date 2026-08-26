@@ -5,7 +5,7 @@
   },
   "git": {
     "tagName": "v${version}",
-    "requireBranch": "master"
+    "requireBranch": "main"
   },
   "hooks": {
     "before:init": [

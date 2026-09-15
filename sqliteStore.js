@@ -69,6 +69,7 @@ class SqliteStore {
     }
   }
 
+  // range delete over { gt, lt }, like values(); not the full level clear()
   async clear (options) {
     this.#clearRange.run(options.gt, options.lt)
   }

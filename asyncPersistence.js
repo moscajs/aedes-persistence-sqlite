@@ -22,11 +22,14 @@ const encodingOption = {
 }
 const LEVEL_NOT_FOUND = 'LEVEL_NOT_FOUND'
 
+// every key scan is a prefix scan: '\xff' is above any byte padId or a
+// percent-encoded id can produce, so it bounds the prefix
+function prefixRange (prefix) {
+  return { gt: prefix, lt: `${prefix}\xff` }
+}
+
 async function * decodedDbValues (db, start) {
-  const opts = Object.assign({
-    gt: start,
-    lt: `${start}\xff`
-  }, encodingOption)
+  const opts = Object.assign(prefixRange(start), encodingOption)
   for await (const blob of db.values(opts)) {
     yield msgpack.decode(blob)
   }
@@ -120,14 +123,14 @@ function outgoingByIdKey (clientId, messageId) {
   return `${OUTGOINGID}${encodeURIComponent(clientId)}:${padId(messageId)}`
 }
 
-function incomingKey (clientId, messageId) {
-  return `${INCOMING}${encodeURIComponent(clientId)}:${padId(messageId)}`
+// ends with ':' so the prefix is exact: encodeURIComponent escapes ':' to %3A,
+// so client 'ab' cannot match the keys of client 'abc'
+function incomingByClientPrefix (clientId) {
+  return `${INCOMING}${encodeURIComponent(clientId)}:`
 }
 
-// trailing ':' keeps the prefix exact: encodeURIComponent escapes ':' to %3A,
-// so client 'ab' cannot match the keys of client 'abc'
-function incomingByClientKey (clientId) {
-  return `${INCOMING}${encodeURIComponent(clientId)}:`
+function incomingKey (clientId, messageId) {
+  return `${incomingByClientPrefix(clientId)}${padId(messageId)}`
 }
 
 function willKey (clientId) {
@@ -181,6 +184,10 @@ class AsyncLevelPersistence {
 
   async #dbBatch (opArray) {
     await this.#db.batch(opArray, encodingOption)
+  }
+
+  async #dbClear (prefix) {
+    await this.#db.clear(prefixRange(prefix))
   }
 
   async storeRetained (packet) {
@@ -326,8 +333,7 @@ class AsyncLevelPersistence {
   }
 
   async cleanIncoming (client) {
-    const prefix = incomingByClientKey(client.id)
-    await this.#db.clear({ gt: prefix, lt: `${prefix}\xff` })
+    await this.#dbClear(incomingByClientPrefix(client.id))
   }
 
   async putWill (client, packet) {

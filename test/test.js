@@ -187,7 +187,7 @@ test('Replace subscriptions with different QoS if client id is same', t => {
   })
 })
 
-test('cleanIncoming does not touch a client whose id is a prefix of another', t => {
+test('cleanIncoming does not touch a client whose id is a prefix of another', async t => {
   const instance = persistence(tempDir())
   instance.broker = { id: 'test' }
 
@@ -205,18 +205,16 @@ test('cleanIncoming does not touch a client whose id is a prefix of another', t 
     messageId: 42
   }
 
-  instance.incomingStorePacket(client, packet, err => {
-    assert.ok(!err, 'no error')
-    instance.incomingStorePacket(other, packet, err => {
-      assert.ok(!err, 'no error')
-      instance.cleanIncoming(client, err => {
-        assert.ok(!err, 'no error')
-        instance.incomingGetPacket(other, { messageId: packet.messageId }, (err, retrieved) => {
-          assert.ok(!err, 'no error')
-          assert.equal(retrieved.messageId, packet.messageId, 'other client must not be touched')
-          instance.destroy()
-        })
-      })
-    })
-  })
+  await instance.incomingStorePacket(client, packet)
+  await instance.incomingStorePacket(other, packet)
+  await instance.cleanIncoming(client)
+
+  await assert.rejects(
+    instance.incomingGetPacket(client, { messageId: packet.messageId }),
+    'the cleaned client must have no incoming packets left'
+  )
+  const retrieved = await instance.incomingGetPacket(other, { messageId: packet.messageId })
+  assert.equal(retrieved.messageId, packet.messageId, 'other client must not be touched')
+
+  await instance.destroy()
 })

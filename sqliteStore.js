@@ -8,6 +8,7 @@ class SqliteStore {
   #put
   #del
   #range
+  #clearRange
   #insert
   #delete
 
@@ -23,6 +24,7 @@ class SqliteStore {
     this.#put = this.#db.prepare('INSERT OR REPLACE INTO key_value (key, value) VALUES (?, ?)')
     this.#del = this.#db.prepare('DELETE FROM key_value WHERE key = ?')
     this.#range = this.#db.prepare('SELECT value FROM key_value WHERE key > ? AND key < ? ORDER BY key')
+    this.#clearRange = this.#db.prepare('DELETE FROM key_value WHERE key > ? AND key < ?')
     this.#insert = this.#db.prepare('INSERT OR REPLACE INTO key_value (key, value) VALUES (?, ?)')
     this.#delete = this.#db.prepare('DELETE FROM key_value WHERE key = ?')
   }
@@ -65,6 +67,11 @@ class SqliteStore {
       put: (key, value) => pending.push({ type: 'put', key, value }),
       write: () => this.batch(pending)
     }
+  }
+
+  // range delete over { gt, lt }, like values(); not the full level clear()
+  async clear (options) {
+    this.#clearRange.run(options.gt, options.lt)
   }
 
   async * values (options) {

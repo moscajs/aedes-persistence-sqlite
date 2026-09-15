@@ -22,11 +22,20 @@ const encodingOption = {
 }
 const LEVEL_NOT_FOUND = 'LEVEL_NOT_FOUND'
 
+// Every key scan is a prefix scan. SQLite compares TEXT with the BINARY
+// collation, i.e. by UTF-8 bytes, so the usual '\xff' sentinel does not bound a
+// prefix: U+00FF encodes as C3 BF, and any suffix starting at U+0100 or above
+// sorts past it. Retained and subscription keys end in a raw MQTT topic, so
+// that would silently hide them. Bumping the prefix's last code point is exact
+// for any suffix, because every key starting with the prefix sorts below it.
+function prefixRange (prefix) {
+  const chars = [...prefix]
+  const lastCodePoint = chars.pop().codePointAt(0)
+  return { gt: prefix, lt: chars.join('') + String.fromCodePoint(lastCodePoint + 1) }
+}
+
 async function * decodedDbValues (db, start) {
-  const opts = Object.assign({
-    gt: start,
-    lt: `${start}\xff`
-  }, encodingOption)
+  const opts = Object.assign(prefixRange(start), encodingOption)
   for await (const blob of db.values(opts)) {
     yield msgpack.decode(blob)
   }
@@ -108,20 +117,29 @@ function padId (id) {
   return id?.toString().padStart(16, '0')
 }
 
-function outgoingKey (clientId, brokerId, brokerCounter) {
-  return `${OUTGOING}${encodeURIComponent(clientId)}:${brokerId}:${padId(brokerCounter)}`
+function outgoingByClientKey (clientId) {
+  return `${OUTGOING}${encodeURIComponent(clientId)}:`
 }
 
-function outgoingByClientKey (clientId) {
-  return `${OUTGOING}${encodeURIComponent(clientId)}`
+function outgoingKey (clientId, brokerId, brokerCounter) {
+  return `${outgoingByClientKey(clientId)}${brokerId}:${padId(brokerCounter)}`
 }
 
 function outgoingByIdKey (clientId, messageId) {
   return `${OUTGOINGID}${encodeURIComponent(clientId)}:${padId(messageId)}`
 }
 
+// Every per-client prefix ends at the ':' delimiter, so a scan cannot spill
+// into a client whose id merely extends this one: encodeURIComponent escapes
+// ':' to %3A, so no id can contain the delimiter itself. Client ids are chosen
+// at CONNECT, so an unterminated prefix is cross-client disclosure, not just
+// untidiness. The full-key builders append to these, keeping keys unchanged.
+function incomingByClientPrefix (clientId) {
+  return `${INCOMING}${encodeURIComponent(clientId)}:`
+}
+
 function incomingKey (clientId, messageId) {
-  return `${INCOMING}${encodeURIComponent(clientId)}:${padId(messageId)}`
+  return `${incomingByClientPrefix(clientId)}${padId(messageId)}`
 }
 
 function willKey (clientId) {
@@ -129,11 +147,11 @@ function willKey (clientId) {
 }
 
 function subByClientKey (clientId) {
-  return `${SUBSCRIPTIONS}${encodeURIComponent(clientId)}`
+  return `${SUBSCRIPTIONS}${encodeURIComponent(clientId)}:`
 }
 
 function toSubKey (sub) {
-  return `${subByClientKey(sub.clientId)}:${sub.topic}`
+  return `${subByClientKey(sub.clientId)}${sub.topic}`
 }
 
 class AsyncLevelPersistence {
@@ -175,6 +193,10 @@ class AsyncLevelPersistence {
 
   async #dbBatch (opArray) {
     await this.#db.batch(opArray, encodingOption)
+  }
+
+  async #dbClear (prefix) {
+    await this.#db.clear(prefixRange(prefix))
   }
 
   async storeRetained (packet) {
@@ -317,6 +339,10 @@ class AsyncLevelPersistence {
   async incomingDelPacket (client, packet) {
     const key = incomingKey(client.id, packet.messageId)
     await this.#dbDel(key)
+  }
+
+  async cleanIncoming (client) {
+    await this.#dbClear(incomingByClientPrefix(client.id))
   }
 
   async putWill (client, packet) {

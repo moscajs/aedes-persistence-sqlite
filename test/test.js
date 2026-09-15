@@ -218,3 +218,29 @@ test('cleanIncoming does not touch a client whose id is a prefix of another', as
 
   await instance.destroy()
 })
+
+// a '\xff' upper bound would only cover ASCII suffixes, hiding every topic
+// from U+0100 up
+test('retained messages on non-ASCII topics are streamed back', async t => {
+  const instance = persistence(tempDir())
+  instance.broker = { id: 'test' }
+
+  const topics = ['ascii/t', '\u00fc/t', '\u0100/t', '\u0410/t', '\u4e2d/t', '\ud83d\ude00/t']
+  for (const topic of topics) {
+    await instance.storeRetained({
+      cmd: 'publish',
+      topic,
+      payload: Buffer.from('world'),
+      qos: 0,
+      retain: true
+    })
+  }
+
+  const streamed = []
+  for await (const packet of instance.createRetainedStream('#')) {
+    streamed.push(packet.topic)
+  }
+  assert.deepEqual(streamed.sort(), [...topics].sort(), 'every retained topic must come back')
+
+  await instance.destroy()
+})

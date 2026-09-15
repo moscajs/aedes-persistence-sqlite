@@ -22,10 +22,16 @@ const encodingOption = {
 }
 const LEVEL_NOT_FOUND = 'LEVEL_NOT_FOUND'
 
-// every key scan is a prefix scan: '\xff' is above any byte padId or a
-// percent-encoded id can produce, so it bounds the prefix
+// Every key scan is a prefix scan. SQLite compares TEXT with the BINARY
+// collation, i.e. by UTF-8 bytes, so the usual '\xff' sentinel does not bound a
+// prefix: U+00FF encodes as C3 BF, and any suffix starting at U+0100 or above
+// sorts past it. Retained and subscription keys end in a raw MQTT topic, so
+// that would silently hide them. Bumping the prefix's last code point is exact
+// for any suffix, because every key starting with the prefix sorts below it.
 function prefixRange (prefix) {
-  return { gt: prefix, lt: `${prefix}\xff` }
+  const chars = [...prefix]
+  const lastCodePoint = chars.pop().codePointAt(0)
+  return { gt: prefix, lt: chars.join('') + String.fromCodePoint(lastCodePoint + 1) }
 }
 
 async function * decodedDbValues (db, start) {

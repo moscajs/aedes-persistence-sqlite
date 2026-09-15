@@ -117,20 +117,23 @@ function padId (id) {
   return id?.toString().padStart(16, '0')
 }
 
-function outgoingKey (clientId, brokerId, brokerCounter) {
-  return `${OUTGOING}${encodeURIComponent(clientId)}:${brokerId}:${padId(brokerCounter)}`
+function outgoingByClientKey (clientId) {
+  return `${OUTGOING}${encodeURIComponent(clientId)}:`
 }
 
-function outgoingByClientKey (clientId) {
-  return `${OUTGOING}${encodeURIComponent(clientId)}`
+function outgoingKey (clientId, brokerId, brokerCounter) {
+  return `${outgoingByClientKey(clientId)}${brokerId}:${padId(brokerCounter)}`
 }
 
 function outgoingByIdKey (clientId, messageId) {
   return `${OUTGOINGID}${encodeURIComponent(clientId)}:${padId(messageId)}`
 }
 
-// ends with ':' so the prefix is exact: encodeURIComponent escapes ':' to %3A,
-// so client 'ab' cannot match the keys of client 'abc'
+// Every per-client prefix ends at the ':' delimiter, so a scan cannot spill
+// into a client whose id merely extends this one: encodeURIComponent escapes
+// ':' to %3A, so no id can contain the delimiter itself. Client ids are chosen
+// at CONNECT, so an unterminated prefix is cross-client disclosure, not just
+// untidiness. The full-key builders append to these, keeping keys unchanged.
 function incomingByClientPrefix (clientId) {
   return `${INCOMING}${encodeURIComponent(clientId)}:`
 }
@@ -144,11 +147,11 @@ function willKey (clientId) {
 }
 
 function subByClientKey (clientId) {
-  return `${SUBSCRIPTIONS}${encodeURIComponent(clientId)}`
+  return `${SUBSCRIPTIONS}${encodeURIComponent(clientId)}:`
 }
 
 function toSubKey (sub) {
-  return `${subByClientKey(sub.clientId)}:${sub.topic}`
+  return `${subByClientKey(sub.clientId)}${sub.topic}`
 }
 
 class AsyncLevelPersistence {

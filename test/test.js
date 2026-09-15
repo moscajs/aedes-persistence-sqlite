@@ -6,11 +6,18 @@ const { randomUUID } = require('node:crypto')
 const { tmpdir } = require('node:os')
 const { join } = require('node:path')
 const { mkdirSync } = require('node:fs')
+const { once } = require('node:events')
 
 function tempDir () {
   const dir = join(tmpdir(), 'aedes-persistence-sqlite-test', randomUUID())
   mkdirSync(dir, { recursive: true })
   return join(dir, 'persistence.sqlite')
+}
+
+// setup() scans every subscription, so a query issued before 'ready' races that
+// scan; wait it out to keep these tests deterministic
+function ready (instance) {
+  return instance.ready ? Promise.resolve() : once(instance, 'ready')
 }
 
 abs({
@@ -241,6 +248,67 @@ test('retained messages on non-ASCII topics are streamed back', async t => {
     streamed.push(packet.topic)
   }
   assert.deepEqual(streamed.sort(), [...topics].sort(), 'every retained topic must come back')
+
+  await instance.destroy()
+})
+
+// Each per-client prefix ends at ':' so a scan cannot spill into a client whose
+// id merely extends it. The abstract suite only uses ids that share no prefix
+// ('abcde'/'fghij'), so it cannot catch any of this.
+test('subscriptionsByClient does not return a client whose id extends it', async t => {
+  const instance = persistence(tempDir())
+  instance.broker = { id: 'test' }
+  await ready(instance)
+
+  await instance.addSubscriptions({ id: 'abc' }, [{ topic: 'secret/abc', qos: 1 }])
+  await instance.addSubscriptions({ id: 'abcde' }, [{ topic: 'secret/abcde', qos: 1 }])
+
+  const subs = await instance.subscriptionsByClient({ id: 'abc' })
+  assert.deepEqual(subs.map(sub => sub.topic), ['secret/abc'], 'must not see abcde subscriptions')
+
+  await instance.destroy()
+})
+
+test('outgoingStream does not return a client whose id extends it', async t => {
+  const instance = persistence(tempDir())
+  instance.broker = { id: 'test' }
+  await ready(instance)
+
+  await instance.outgoingEnqueue({ clientId: 'abcde' }, {
+    cmd: 'publish',
+    topic: 'secret/abcde',
+    payload: Buffer.from('private'),
+    qos: 1,
+    brokerId: 'brk',
+    brokerCounter: 1,
+    messageId: 7
+  })
+
+  const streamed = []
+  for await (const packet of instance.outgoingStream({ id: 'abc' })) {
+    streamed.push(packet.topic)
+  }
+  assert.deepEqual(streamed, [], 'must not see abcde queued packets')
+
+  await instance.destroy()
+})
+
+// terminating the prefix puts the raw topic first after it, so a bad upper
+// bound would hide every non-ASCII subscription instead of just mis-scoping it
+test('subscriptions on non-ASCII topics survive lookup and clean', async t => {
+  const instance = persistence(tempDir())
+  instance.broker = { id: 'test' }
+  await ready(instance)
+
+  const client = { id: 'abc' }
+  const topics = ['ascii/a', '\u00e9/x', '\u00ff/x', '\u0100/x', '\u0442\u0435\u043c\u0430', '\u4e3b\u9898', '\ud83d\ude00/x']
+  await instance.addSubscriptions(client, topics.map(topic => ({ topic, qos: 1 })))
+
+  const subs = await instance.subscriptionsByClient(client)
+  assert.deepEqual(subs.map(sub => sub.topic).sort(), [...topics].sort(), 'every topic must come back')
+
+  await instance.cleanSubscriptions(client)
+  assert.deepEqual(await instance.subscriptionsByClient(client), [], 'clean must leave nothing behind')
 
   await instance.destroy()
 })

@@ -186,3 +186,37 @@ test('Replace subscriptions with different QoS if client id is same', t => {
     })
   })
 })
+
+test('cleanIncoming does not touch a client whose id is a prefix of another', t => {
+  const instance = persistence(tempDir())
+  instance.broker = { id: 'test' }
+
+  const client = { id: 'ab' }
+  const other = { id: 'abc' }
+
+  const packet = {
+    cmd: 'publish',
+    topic: 'hello',
+    payload: Buffer.from('world'),
+    qos: 2,
+    dup: false,
+    length: 14,
+    retain: false,
+    messageId: 42
+  }
+
+  instance.incomingStorePacket(client, packet, err => {
+    assert.ok(!err, 'no error')
+    instance.incomingStorePacket(other, packet, err => {
+      assert.ok(!err, 'no error')
+      instance.cleanIncoming(client, err => {
+        assert.ok(!err, 'no error')
+        instance.incomingGetPacket(other, { messageId: packet.messageId }, (err, retrieved) => {
+          assert.ok(!err, 'no error')
+          assert.equal(retrieved.messageId, packet.messageId, 'other client must not be touched')
+          instance.destroy()
+        })
+      })
+    })
+  })
+})

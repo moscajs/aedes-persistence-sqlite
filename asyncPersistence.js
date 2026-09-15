@@ -124,6 +124,12 @@ function incomingKey (clientId, messageId) {
   return `${INCOMING}${encodeURIComponent(clientId)}:${padId(messageId)}`
 }
 
+// trailing ':' keeps the prefix exact: encodeURIComponent escapes ':' to %3A,
+// so client 'ab' cannot match the keys of client 'abc'
+function incomingByClientKey (clientId) {
+  return `${INCOMING}${encodeURIComponent(clientId)}:`
+}
+
 function willKey (clientId) {
   return `${WILL}${encodeURIComponent(clientId)}`
 }
@@ -317,6 +323,11 @@ class AsyncLevelPersistence {
   async incomingDelPacket (client, packet) {
     const key = incomingKey(client.id, packet.messageId)
     await this.#dbDel(key)
+  }
+
+  async cleanIncoming (client) {
+    const prefix = incomingByClientKey(client.id)
+    await this.#db.clear({ gt: prefix, lt: `${prefix}\xff` })
   }
 
   async putWill (client, packet) {
